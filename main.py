@@ -12,8 +12,100 @@ from texts import *
 import colorama
 colorama.init()
 
-def clear():
-    os.system('cls' if os.name == 'nt' else 'clear')
+class Menu:
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def clear():
+        os.system('cls' if os.name == 'nt' else 'clear')
+
+    @staticmethod
+    def show_menu():
+        print("1. Start new game")
+        print("2. Load game")
+        print("3. Settings")
+        print("4. Exit")
+        print("> ", end='')
+
+    @staticmethod
+    def start_new_game():
+        global curent_time, gamemode, process, mapp, heroe, inventar, game
+
+        curent_time = Time(hours = 8)
+        gamemode = Gamemode()
+        process = Processmode()
+        mapp = Map()
+        heroe = Heroe(mapp = mapp)
+        inventar = Inventory()
+        game = Game(heroe, mapp, curent_time, gamemode, process, inventar)
+        game.main_process()
+
+    @staticmethod
+    def write(text_list, delay):
+        for row in text_list:
+            for char in row:
+                sys.stdout.write(char)
+                sys.stdout.flush()
+                time.sleep(delay)
+
+    def print_intro(self):
+        f = Figlet(font='gothic')
+        self.write((list(f.renderText('TerminaRPG'))), 0.002)
+        print()
+
+    @staticmethod
+    def load_game():
+        with open("gamesave.pkl", 'rb') as f:
+            game = pickle.load(f)
+        game.heroe.add_heroe_on_map()
+        game.process.mode = 'menu'
+        return game
+
+    @staticmethod
+    def dell_all():
+        try:
+            del curent_time
+            del gamemode
+            del process
+            del mapp
+            del heroe
+            del inventar
+            del game
+        except:
+            pass
+    
+    @staticmethod
+    def get_char():
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            char = sys.stdin.read(1)
+            return char
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+    def start(self):
+        while True:
+            self.clear()
+            self.print_intro()
+            self.show_menu()
+            choice = self.get_char()
+            if choice == '1':
+                self.dell_all()
+                self.start_new_game()
+            elif choice == '2':
+                print("Loading game...")
+                self.dell_all()
+                self.load_game().main_process()
+            elif choice == '3':
+                # TODO: settings
+                pass
+            elif choice in ['4', '0']:
+                print("Exiting...")
+                break
+
 
 class Game:
     def __init__(self, heroe, mapp, time, gamemode, processmode, inventory):
@@ -33,7 +125,7 @@ class Game:
         while True:
             self.save()
             if self.process.mode == 'menu':
-                clear()
+                Menu.clear()
                 self.process.print_menu()
 
                 print('> ', end='')
@@ -52,7 +144,7 @@ class Game:
                     continue
 
                 elif char == '0':
-                    clear()
+                    Menu.clear()
                     return
             
             elif self.process.mode == 'sett':
@@ -60,13 +152,13 @@ class Game:
 
             else:
                 if self.heroe.curent_hp <= 0:
-                    clear()
+                    Menu.clear()
                     print("Heroe is dead")
                     time.sleep(2)
                     self.process.mode = 'menu'
                     continue
 
-                clear()
+                Menu.clear()
                 self.time.get_daytime()
                 if self.gamemode.mode == 'normal':
                     index = -1
@@ -184,7 +276,7 @@ class Game:
     
     def fite(self, index):
         while True:
-            clear()
+            Menu.clear()
             print("Fight")
     
             print(f"v1mer's HP: {self.heroe.curent_hp}/{self.heroe.max_hp}")
@@ -211,12 +303,12 @@ class Game:
                 break
 
             elif char == '0':
-                clear()
+                Menu.clear()
                 return
 
             elif char == '1':
                 if self.heroe.curent_hp <= 0:
-                    clear()
+                    Menu.clear()
                     print("Heroe is dead")
                     time.sleep(2)
                     self.gamemode.mode = 'normal'
@@ -224,7 +316,7 @@ class Game:
                     break
                 else:
                     self.heroe.atack(self.enemies[index])
-                    clear()
+                    Menu.clear()
 
                 if self.enemies[index].curent_hp <= 0:
                     self.heroe.add_coins(self.enemies[index].generate_coin())
@@ -387,7 +479,7 @@ class Heroe(Entity):
             else:
                 other += 1
                 time.sleep(0.01)
-            clear()
+            Menu.clear()
             game.mapp.print_map(self, game.gamemode, game.time)
     
     @property
@@ -955,86 +1047,6 @@ class Inventory:
             for item in self.items:
                 print(item)
 
-def show_menu():
-    print("1. Start new game")
-    print("2. Load game")
-    print("3. Settings")
-    print("4. Exit")
-    # choice = input("> ")
-    # return choice
-
-def start_new_game():
-    global curent_time, gamemode, process, mapp, heroe, inventar, game
-
-    curent_time = Time(hours = 8)
-    gamemode = Gamemode()
-    process = Processmode()
-    mapp = Map()
-    heroe = Heroe(mapp = mapp)
-    inventar = Inventory()
-    game = Game(heroe, mapp, curent_time, gamemode, process, inventar)
-    game.main_process()
-
-def write(text_list, delay):
-    for row in text_list:
-        for char in row:
-            sys.stdout.write(char)
-            sys.stdout.flush()
-            time.sleep(delay)
-
-def print_intro():
-    f = Figlet(font='gothic')
-    write((list(f.renderText('TerminaRPG'))), 0.002)
-    print()
-
-def load_game():
-    with open("gamesave.pkl", 'rb') as f:
-        game = pickle.load(f)
-    game.heroe.add_heroe_on_map()
-    return game
-
-def dell_all():
-    try:
-        del curent_time
-        del gamemode
-        del process
-        del mapp
-        del heroe
-        del inventar
-        del game
-    except:
-        pass
-
-def get_char():
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-    try:
-        tty.setraw(fd)
-        char = sys.stdin.read(1)
-        return char
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
-def main():
-    while True:
-        clear()
-        print_intro()
-        show_menu()
-        print("> ", end='')
-        choice = get_char()
-        if choice == '1':
-            dell_all()
-            start_new_game()
-        elif choice == '2':
-            print("Loading game...")
-            dell_all()
-            load_game().main_process()
-        elif choice == '3':
-            # print("Settings...")
-            pass
-        elif choice in ['4', '0']:
-            print("Exiting...")
-            break
-
 if __name__ == "__main__":
-    main()
+    menu = Menu()
+    menu.start()
