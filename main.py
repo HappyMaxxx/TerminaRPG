@@ -7,29 +7,58 @@ import random
 from pyfiglet import Figlet
 import pickle
 
-from texts import *
+import texts
 
 import colorama
 colorama.init()
 
+class Settings:
+    def __init__(self):
+        self.language = 'en'
+
+    def save(self):
+        with open("settings.pkl", 'wb') as f:
+            pickle.dump(self, f)
+
+
 class Menu:
     def __init__(self):
-        pass
+        try:
+            with open("settings.pkl", 'rb') as f:
+                self.sett = pickle.load(f)
+        except FileNotFoundError:
+            self.sett = Settings()
+
+    @staticmethod
+    def settings_menu(self):
+        while True:
+            Menu.clear()
+            for i in texts.settings(self.sett.language):
+                print(i)
+
+            print("> ", end='')
+            choice = Menu.get_char()
+            if choice == '1':
+                if self.sett.language == 'ua':
+                    self.sett.language = 'en'
+                else:
+                    self.sett.language = 'ua'
+                self.sett.save()
+                if isinstance(self, Game):
+                    self.sett = Menu.load_set()
+
+            elif choice == '2':
+                pass
+
+            elif choice == '0':
+                self.sett.save()
+                break
 
     @staticmethod
     def clear():
         os.system('cls' if os.name == 'nt' else 'clear')
 
-    @staticmethod
-    def show_menu():
-        print("1. Start new game")
-        print("2. Load game")
-        print("3. Settings")
-        print("4. Exit")
-        print("> ", end='')
-
-    @staticmethod
-    def start_new_game():
+    def start_new_game(self):
         global curent_time, gamemode, process, mapp, heroe, inventar, game
 
         curent_time = Time(hours = 8)
@@ -38,7 +67,7 @@ class Menu:
         mapp = Map()
         heroe = Heroe(mapp = mapp)
         inventar = Inventory()
-        game = Game(heroe, mapp, curent_time, gamemode, process, inventar)
+        game = Game(heroe, mapp, curent_time, gamemode, process, inventar, settings = self.sett)
         game.main_process()
 
     @staticmethod
@@ -60,7 +89,20 @@ class Menu:
             game = pickle.load(f)
         game.heroe.add_heroe_on_map()
         game.process.mode = 'menu'
+        game.sett = Menu.load_set() 
         return game
+    
+    @staticmethod
+    def load_set():
+        with open("settings.pkl", 'rb') as f:
+            return pickle.load(f)
+
+    def show_menu(self):
+        self.clear()
+        self.print_intro()
+        for i in texts.menu(self.sett.language):
+            print(i)
+        print("> ", end='')
 
     @staticmethod
     def dell_all():
@@ -88,8 +130,6 @@ class Menu:
 
     def start(self):
         while True:
-            self.clear()
-            self.print_intro()
             self.show_menu()
             choice = self.get_char()
             if choice == '1':
@@ -97,36 +137,50 @@ class Menu:
                 self.start_new_game()
             elif choice == '2':
                 print("Loading game...")
+                self.clear()
+                if not os.path.exists("gamesave.pkl"):
+                    print("No save file")
+                    time.sleep(2)
+                    self.clear()
+                    continue
+
                 self.dell_all()
                 self.load_game().main_process()
+
             elif choice == '3':
-                # TODO: settings
+                # TODO: how to play
                 pass
-            elif choice in ['4', '0']:
+
+            elif choice == '4':
+                self.settings_menu(self)
+
+            elif choice in ['5', '0']:
                 print("Exiting...")
                 break
 
 
 class Game:
-    def __init__(self, heroe, mapp, time, gamemode, processmode, inventory):
+    def __init__(self, heroe, mapp, time, gamemode, processmode, inventory, settings):
         self.heroe = heroe
         self.mapp = mapp
         self.time = time
         self.gamemode = gamemode
         self.process = processmode
         self.inventory = inventory
+        self.sett = settings
         self.enemies = []
-    
+
     def save(self):
         with open("gamesave.pkl", 'wb') as f:
             pickle.dump(self, f)
 
     def main_process(self):
+        Menu.load_set()
         while True:
             self.save()
             if self.process.mode == 'menu':
                 Menu.clear()
-                self.process.print_menu()
+                self.print_pause()
 
                 print('> ', end='')
                 char = self.process.get_char_map()
@@ -138,15 +192,12 @@ class Game:
                     self.process.mode = 'ingame'
 
                 elif char == "2":
-                    continue
-
-                elif char == "3":
-                    continue
+                    Menu.settings_menu(self)
 
                 elif char == '0':
                     Menu.clear()
                     return
-            
+
             elif self.process.mode == 'sett':
                 pass
 
@@ -160,9 +211,10 @@ class Game:
 
                 Menu.clear()
                 self.time.get_daytime()
+
                 if self.gamemode.mode == 'normal':
                     index = -1
-                    self.mapp.print_map(self.heroe, self.gamemode, self.time)
+                    self.mapp.print_map(self.heroe, self.gamemode, self.time, self.sett.language)
                     char = self.gamemode.get_char_n()
 
                     if char == -1:
@@ -184,18 +236,18 @@ class Game:
                                         break
                                 except ValueError:
                                     pass
-                                
+
                         if len(self.enemies) < 5 and self.time.get_day() >= 1:
                             if self.time.daytime == 'ніч':
                                 if random.randint(0, 10) in [1, 2, 3, 4]:
                                     self.create_enemy()
                                 self.create_enemy()
-                            
+
                             elif self.time.daytime == 'вечір':
                                 if random.randint(0, 10) in [1, 2]:
                                     self.create_enemy()
                                 self.create_enemy()
-                        
+
                         continue
 
                     elif char == 'C':
@@ -211,7 +263,7 @@ class Game:
                         continue
 
                 elif self.gamemode.mode == 'command':
-                    self.mapp.print_map(self.heroe, self.gamemode, self.time)
+                    self.mapp.print_map(self.heroe, self.gamemode, self.time, self.sett.language)
                     print("> ", end='')
                     char = self.gamemode.get_char_c()
 
@@ -253,7 +305,7 @@ class Game:
                     elif char == "I":
                         self.gamemode.mode = "inventory"
                         continue
-                
+
                 elif self.gamemode.mode == 'inventory':
                     self.inventory.show_inventory()
                     print("> ", end='')
@@ -269,16 +321,21 @@ class Game:
                 elif self.gamemode.mode == 'fight':
                     self.fite(index)
                     index = -1
-    
+
     def create_enemy(self):
         enemy = Enemy(self.mapp)
         self.enemies.append(enemy)
-    
+
+    def print_pause(self):
+        for i in texts.paus(self.sett.language):
+            print(i)
+        print()
+
     def fite(self, index):
         while True:
             Menu.clear()
             print("Fight")
-    
+
             print(f"v1mer's HP: {self.heroe.curent_hp}/{self.heroe.max_hp}")
             print(self.heroe.print_hp())
             print(f"{self.enemies[index].name} the {self.enemies[index].enemy_type} HP: {self.enemies[index].curent_hp}/{self.enemies[index].max_hp}")
@@ -480,7 +537,7 @@ class Heroe(Entity):
                 other += 1
                 time.sleep(0.01)
             Menu.clear()
-            game.mapp.print_map(self, game.gamemode, game.time)
+            game.mapp.print_map(self, game.gamemode, game.time, game.sett.language)
     
     @property
     def symbol(self):
@@ -501,56 +558,21 @@ class Heroe(Entity):
 
 class Enemy(Entity):
     enemys = ['goblin', 'skeleton', 'orc']
-    monster_names = [
-    "Xenomorph",
-    "Nemesis",
-    "Balrog",
-    "Demogorgon",
-    "Godzilla",
-    "Cthulhu",
-    "Kaonashi",
-    "Sephiroth",
-    "Tyrant",
-    "Gorgon",
-    "Dementor",
-    "Gengar",
-    "Mothra",
-    "Gremlin",
-    "Dracula",
-    "Frieza",
-    "Zergling",
-    "Wendigo",
-    "Behemoth",
-    "Smaug",
-    "Ghoul",
-    "Orc",
-    "Necromorph",
-    "Rancor",
-    "Leviathan",
-    "Predator",
-    "Kaiju",
-    "Balverine",
-    "Cerberus",
-    "Sauron",
-    "Majin Buu",
-    "Reaper",
-    "Doom Slayer",
-    "Kraid",
-    "Jotun",
-    "Revenant",
-    "Spectre",
-    "Vamp",
-    "Naga",
-    "Hydralisk",
-    "Beholder",
-    "Lich King",
-    "Goliath",
-    "Zeromus",
-    "Darkspawn",
-    "Creeper",
-    "Molten Man",
-    "Nightmare",
-    "Orochi"
+    monster_names = ["Xenomorph", "Nemesis", "Balrog",
+    "Demogorgon", "Godzilla", "Cthulhu", "Kaonashi",
+    "Sephiroth", "Tyrant", "Gorgon", "Dementor",
+    "Gengar", "Mothra", "Gremlin", "Dracula",
+    "Frieza", "Zergling", "Wendigo", "Behemoth",
+    "Smaug", "Ghoul", "Necromorph", "Rancor",
+    "Leviathan", "Predator", "Kaiju", "Balverine",
+    "Cerberus", "Sauron", "Majin Buu", "Reaper",
+    "Doom Slayer", "Kraid", "Jotun", "Revenant",
+    "Spectre", "Vamp", "Naga", "Hydralisk",
+    "Beholder", "Lich King", "Goliath", "Zeromus",
+    "Darkspawn", "Creeper", "Molten Man", "Nightmare",
+    "Orochi", "Poo", "Siren", "Rick Sanchez", "Thanos",
+    "Ultron", "Venom", "Wolverine", "Xenomorph",
+    "Yoda", "Aragorn", "Bane"
     ]
 
     enemy_types = {
@@ -625,7 +647,12 @@ class Enemy(Entity):
         full_map[self.pos_x][0] = full_map[self.pos_x][0][:self.pos_y] + "H"+ full_map[self.pos_x][0][self.pos_y + 1:]
 
     def generate_coin(self):
-        coins = random.randint(1, 5)
+        if self.enemy_type == 'goblin':
+            coins = random.randint(1, 2)
+        elif self.enemy_type == 'skeleton':
+            coins = random.randint(1, 3)
+        elif self.enemy_type == 'orc':
+            coins = random.randint(2, 5)
         return coins
 
 class Time:
@@ -851,12 +878,6 @@ class Processmode:
     def __init__(self):
         self.mode = 'menu'
 
-    @staticmethod
-    def print_menu():
-        for i in range(len(menu_ua)):
-            print(menu_ua[i])
-        print()
-
     @property
     def mode(self):
         return self.__mode
@@ -934,9 +955,8 @@ class Map:
         self.max_x = start_x + range_x
         self.max_y = start_y + range_y
 
-    def print_map(self, heroe, gamemode, curent_time):
-        print("Для виходу натисніть 0 \n")
-
+    def print_map(self, heroe, gamemode, curent_time, language):
+        print(texts.play_menu(language)[0])
         curent_mode = gamemode.mode
 
         hero_pos = heroe.get_hero_position()
@@ -1004,7 +1024,8 @@ class Map:
                 self.max_y -= 1    
 
     def print_full_map(self, game):
-        print("Для виходу натисніть 0 \n")
+        print(texts.play_menu(game.sett.language)[0])
+
         curent_mode = game.gamemode.mode
         for i in range(self.start_x, self.max_x):
             colored_line = ''
@@ -1047,6 +1068,8 @@ class Inventory:
             for item in self.items:
                 print(item)
 
+
 if __name__ == "__main__":
     menu = Menu()
     menu.start()
+    menu.clear()
