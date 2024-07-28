@@ -321,7 +321,7 @@ class Game:
                         continue
 
                 elif self.gamemode.mode == 'fight':
-                    self.fite(self.index)
+                    self.figth(self.index)
                     self.index = -1
 
                 elif self.gamemode.mode == 'pause':
@@ -336,7 +336,7 @@ class Game:
             print(i)
         print()
 
-    def fite(self, index):
+    def figth(self, index):
         while True:
             Menu.clear()
             text = texts.figth_mode(self.sett.language)
@@ -1036,7 +1036,7 @@ class Map:
                 colored_line += self.COLORS.get(symbol, colorama.Fore.RESET) + symbol
                 colored_line += colorama.Fore.RESET
             try:
-                text = texts.map_rigt(language)
+                text = texts.map_right(language)
                 locations = texts.locations(language)
                 print(colored_line, f'  {text[0]} \b{locations[heroe.hero_symbol]} {text[1]} {heroe.hero_symbol}' if i == start_x else '',
                     f'{text[2]} \b{curent_time.get_day()} {text[3]} \b{curent_time.get_time()} {curent_time.emoji_by_time[curent_time.daytime]}' if i == start_x + 1 else '',
@@ -1076,7 +1076,7 @@ class Map:
                 symbol = self.visible_map[i][0][j]
                 colored_line += self.COLORS.get(symbol, colorama.Fore.RESET) + symbol
                 colored_line += colorama.Fore.RESET
-            text = texts.map_rigt(game.sett.language)
+            text = texts.map_right(game.sett.language)
             locations = texts.locations(game.sett.language)
             print(colored_line, f' {text[0]} \b{locations[game.heroe.hero_symbol]}' if i == self.start_x else '',
                 f'\b{text[2]} \b{game.time.get_day()} {text[3]} \b{game.time.get_time()}' if i == self.start_x + 1 else '',

@@ -29,8 +29,8 @@ def paus(lang):
             "0. EXIT",
             ""]
 
-#MAP TEXTS
-def map_rigt(lang):
+#MAP RIGHT TEXTS
+def map_right(lang):
     map_r_ua = ['Локація зараз:',
                 '\b, символ:',
                 ' День:',
