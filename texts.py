@@ -86,11 +86,11 @@ def settings(lang):
 
 def play_menu(lang):
     if lang == "ua":
-        return ["0. ПАУЗА\n",
+        return ["0. ПАУЗА",
                 ""]
     
     elif lang == "en":
-        return ["0. PAUSE\n",
+        return ["0. PAUSE",
                 ""]
     
 def locations(language):
@@ -109,3 +109,33 @@ def locations(language):
             '♣': 'Forest',
             '▲': 'Mountains'
         }
+    
+def figth_mode(lang, name='v1mer'):
+    if lang == 'ua':
+        return [' --- БОЙОВИЙ РЕЖИМ --- ',
+            "1. Атакувати",
+            "2. Захиститись",
+            "3. Використати заклинання",
+            "4. Втекти",
+            f'ОЗ {name}:',
+            'ОЗ',
+            '0. Пауза'
+            ]
+    
+    elif lang == 'en':
+        return [" --- FIGHT MODE --- ",
+            "1. Attack",
+            "2. Defend",
+            "3. Use spells",
+            "4. Run away",
+            f"{name}'s HP:",
+            'HP',
+            '0. Pause'
+            ]
+
+def live_figth(lang):
+    if lang == 'ua':
+        return 'Ви не можете вийти поки ви в бою!'
+    
+    elif lang == 'en':
+        return 'You cannot exit while you are in battle!'

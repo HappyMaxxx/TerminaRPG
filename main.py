@@ -6,6 +6,7 @@ import time
 import random
 from pyfiglet import Figlet
 import pickle
+import shutil
 
 import texts
 
@@ -29,7 +30,6 @@ class Menu:
         except FileNotFoundError:
             self.sett = Settings()
 
-    @staticmethod
     def settings_menu(self):
         while True:
             Menu.clear()
@@ -89,9 +89,9 @@ class Menu:
             game = pickle.load(f)
         game.heroe.add_heroe_on_map()
         game.process.mode = 'menu'
-        game.sett = Menu.load_set() 
+        game.sett = Menu.load_set()
         return game
-    
+
     @staticmethod
     def load_set():
         with open("settings.pkl", 'rb') as f:
@@ -170,6 +170,7 @@ class Game:
         self.inventory = inventory
         self.sett = settings
         self.enemies = []
+        self.index = -1
 
     def save(self):
         with open("gamesave.pkl", 'wb') as f:
@@ -214,7 +215,7 @@ class Game:
                 self.time.get_daytime()
 
                 if self.gamemode.mode == 'normal':
-                    index = -1
+                    self.index = -1
                     self.mapp.print_map(self.heroe, self.gamemode, self.time, self.sett.language)
                     char = self.gamemode.get_char_n()
 
@@ -228,11 +229,11 @@ class Game:
 
                     elif char in ['Up', 'Down', 'Right', 'Left']:
                         self.heroe.move(char, self.time, self)
-                        if len (self.enemies) > 0:
+                        if len(self.enemies) > 0:
                             for i, enemy in enumerate(self.enemies):
                                 try:
                                     if enemy.is_hero_stepping_on(self.heroe):
-                                        index = i
+                                        self.index = i
                                         self.gamemode.mode = 'fight'
                                         break
                                 except ValueError:
@@ -320,8 +321,11 @@ class Game:
                         continue
 
                 elif self.gamemode.mode == 'fight':
-                    self.fite(index)
-                    index = -1
+                    self.fite(self.index)
+                    self.index = -1
+
+                elif self.gamemode.mode == 'pause':
+                    self.handle_pause()
 
     def create_enemy(self):
         enemy = Enemy(self.mapp)
@@ -335,34 +339,31 @@ class Game:
     def fite(self, index):
         while True:
             Menu.clear()
-            print("Fight")
+            text = texts.figth_mode(self.sett.language)
 
-            print(f"v1mer's HP: {self.heroe.curent_hp}/{self.heroe.max_hp}")
+            print(text[0], '\n')
+            print(f"{text[6]} {self.heroe.curent_hp}/{self.heroe.max_hp}")
             print(self.heroe.print_hp())
-            print(f"{self.enemies[index].name} the {self.enemies[index].enemy_type} HP: {self.enemies[index].curent_hp}/{self.enemies[index].max_hp}")
+            print(f"{self.enemies[index].name} the {self.enemies[index].enemy_type} {text[6]} {self.enemies[index].curent_hp}/{self.enemies[index].max_hp}")
             print(self.enemies[index].print_hp())
             print()
-            print("1. Атакувати")
-            print("2. Захиститись")
-            print("3. Використати заклинання")
-            print("4. Втекти")
-            print("0. Вийти")
+            print(text[1])
+            print(text[2])
+            print(text[3])
+            print(text[4])
+            print(text[7])
             print("> ", end='')
 
             time.sleep(0.1)
 
             char = self.gamemode.get_char_f()
-
+            heal_chance = self.enemies[index].enemy_types[self.enemies[index].enemy_type]['heal_chance']
             if char == -1:
                 continue
 
-            elif char == 'Esc':
-                self.gamemode.mode = 'normal'
-                break
-
             elif char == '0':
-                Menu.clear()
-                return
+                self.gamemode.mode = 'pause'
+                self.handle_pause()
 
             elif char == '1':
                 if self.heroe.curent_hp <= 0:
@@ -373,30 +374,53 @@ class Game:
                     self.process.mode = 'menu'
                     break
                 else:
-                    self.heroe.atack(self.enemies[index])
+                    self.heroe.atack(self.enemies[index], self)
                     Menu.clear()
 
                 if self.enemies[index].curent_hp <= 0:
                     self.heroe.add_coins(self.enemies[index].generate_coin())
-                    self.enemies[index].dead_enemy(game = self)
+                    self.enemies[index].dead_enemy(game=self)
                     del self.enemies[index]
                     self.gamemode.mode = 'normal'
                     break
                 else:
-                    self.enemies[index].atack(self.heroe)
+                    if random.random() < heal_chance:
+                        self.enemies[index].heal()
+                    else:
+                        self.enemies[index].atack(self.heroe, self)
 
             elif char == '3':
                 self.heroe.heal(5)
 
                 if self.enemies[index].curent_hp <= 0:
                     self.heroe.add_coins(self.enemies[index].generate_coin())
-                    self.enemies[index].dead_enemy(game = self)
+                    self.enemies[index].dead_enemy(game=self)
                     del self.enemies[index]
                     self.gamemode.mode = 'normal'
                     break
                 else:
-                    self.enemies[index].atack(self.heroe)
+                    if random.random() < heal_chance:
+                        self.enemies[index].heal()
+                    else:
+                        self.enemies[index].atack(self.heroe, self)
 
+    def handle_pause(self):
+        while self.gamemode.mode == 'pause':
+            Menu.clear()
+            self.print_pause()
+            print("> ", end='')
+
+            char = self.gamemode.get_char_f()
+
+            if char == '1':
+                self.gamemode.mode = 'fight'
+            elif char == '2':
+                Menu.settings_menu(self)
+            elif char == '0':
+                Menu.clear()
+                print(texts.live_figth(self.sett.language))
+                time.sleep(2)
+                break
 
 class Entity:
     def __init__(self, max_hp, curent_hp: int = -1, damage = None):
@@ -427,7 +451,7 @@ class Entity:
                     
             # game.gamemode.mode = 'normal'
     
-    def atack(self, other, weapon = None):
+    def atack(self, other, game, weapon = None):
         if weapon is None:
             other.minus_hp(self.damage, game)
 
@@ -446,6 +470,21 @@ class Entity:
         if isinstance(damage, list):
             return random.randint(damage[0], damage[1])
         return damage
+    
+    def heal(self, heal=5):
+        if isinstance(self, Heroe):
+            if self.curent_hp + heal > self.max_hp:
+                self.curent_hp = self.max_hp
+            else:
+                self.curent_hp += heal
+
+        elif isinstance(self, Enemy):
+            healings = self.enemy_types[self.enemy_type]['healing']
+            heal = random.randint(healings[0], healings[1])
+            if self.curent_hp + heal > self.max_hp:
+                self.curent_hp = self.max_hp
+            else:
+                self.curent_hp += heal
     
 
 class Heroe(Entity):
@@ -547,11 +586,6 @@ class Heroe(Entity):
     @symbol.setter
     def symbol(self, hs):
         self.hero_symbol = hs
-
-    def heal(self, hp):
-        self.curent_hp += hp
-        if self.curent_hp > self.max_hp:
-            self.curent_hp = self.max_hp
     
     def add_coins(self, coins):
         self.coins += coins
@@ -579,15 +613,21 @@ class Enemy(Entity):
     enemy_types = {
         'goblin': {
             'max_hp': 10,
-            'damage': [0, 2]
+            'damage': [0, 2],
+            'heal_chance': 0.2,
+            'healing': [1, 2]
         },
         'skeleton': {
             'max_hp': 15,
-            'damage': [0, 3]
+            'damage': [0, 3],
+            'heal_chance': 0.2,
+            'healing': [1, 3]
         },
         'orc': {
             'max_hp': 20,
-            'damage': [2, 4]
+            'damage': [2, 4],
+            'heal_chance': 0.1,
+            'healing': [2, 4]
         }
     }
 
@@ -625,7 +665,7 @@ class Enemy(Entity):
     def validate_enemy_position(self):
         full_map = self.mapp.full_map
         try:
-            if full_map[self.pos_x][0][self.pos_y] in ['≈', 'H']:
+            if full_map[self.pos_x][0][self.pos_y] in ['≈', 'H', 'O', 'G', 'S']:
                 return True
         except IndexError:
             return True
@@ -746,12 +786,12 @@ class Gamemode:
     @property
     def mode(self):
         return self.__mode
-    
+
     @mode.setter
     def mode(self, value: str) -> None:
-        if value not in ['normal', 'command', 'map', 'inventory', 'fight']:
+        if value not in ['normal', 'command', 'map', 'inventory', 'fight', 'pause']:
             raise ValueError("Invalid mode")
-        
+
         self.__mode = value
 
     def get_char_n(self):
@@ -764,28 +804,28 @@ class Gamemode:
 
             if char == '\x1b':
                 sequence = sys.stdin.read(2)
-                if sequence == '[A':  
+                if sequence == '[A':
                     return 'Up'
-                elif sequence == '[B':  
+                elif sequence == '[B':
                     return 'Down'
-                elif sequence == '[C': 
+                elif sequence == '[C':
                     return 'Right'
-                elif sequence == '[D': 
+                elif sequence == '[D':
                     return 'Left'
-            
+
             elif char in ['w', 's', 'd', 'a']:
                 return self.move_dict[char]
             elif char == 'm':
                 return 'Map'
             elif char == 'c':
                 return 'C'
-            elif char == '0': 
+            elif char == '0':
                 return 'Esc'
             elif char == 'i':
                 return 'I'
             else:
                 return -1
-            
+
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
@@ -796,7 +836,7 @@ class Gamemode:
         try:
             tty.setraw(fd)
             char = sys.stdin.read(1)
-            char = char.lower()  
+            char = char.lower()
 
             if char in ['0', 'n', 'c']:
                 return 'Esc'
@@ -806,7 +846,7 @@ class Gamemode:
                 return 'I'
             else:
                 return -1
-            
+
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
@@ -816,18 +856,18 @@ class Gamemode:
         try:
             tty.setraw(fd)
             char = sys.stdin.read(1)
-            char = char.lower()  
+            char = char.lower()
             if char == '\x1b':
                 sequence = sys.stdin.read(2)
-                if sequence == '[A':  
+                if sequence == '[A':
                     return 'Up'
-                elif sequence == '[B':  
+                elif sequence == '[B':
                     return 'Down'
-                elif sequence == '[C': 
+                elif sequence == '[C':
                     return 'Right'
-                elif sequence == '[D': 
+                elif sequence == '[D':
                     return 'Left'
-                
+
             elif char in ['w', 's', 'd', 'a']:
                 return self.move_dict[char]
             elif char in ['0', 'n', 'm']:
@@ -838,7 +878,7 @@ class Gamemode:
                 return 'I'
             else:
                 return -1
-            
+
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
@@ -848,13 +888,13 @@ class Gamemode:
         try:
             tty.setraw(fd)
             char = sys.stdin.read(1)
-            char = char.lower()  
+            char = char.lower()
 
-            if char in ['1', '2', '3', '4', '0']:
+            if char in ['1', '2', '3', '4', '5', '0']:
                 return char
             else:
                 return -1
-            
+
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
@@ -864,13 +904,13 @@ class Gamemode:
         try:
             tty.setraw(fd)
             char = sys.stdin.read(1)
-            char = char.lower()  
+            char = char.lower()
 
             if char in ['0', 'n', 'c', 'm']:
                 return 'Esc'
             else:
                 return -1
-            
+
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
@@ -949,8 +989,13 @@ class Map:
         self.max_x = start_x + range_x
         self.max_y = start_y + range_y
 
+    @staticmethod
+    def get_terminal_size():
+        return shutil.get_terminal_size((40, 20))
+
     def print_map(self, heroe, gamemode, curent_time, language):
         print(texts.play_menu(language)[0])
+        print('-' * self.get_terminal_size().columns)
         curent_mode = gamemode.mode
 
         hero_pos = heroe.get_hero_position()
@@ -1000,6 +1045,7 @@ class Map:
                     f'\b\b{curent_mode.upper()}' if i == start_x + 4 else '')
             except:
                 pass
+        print('-' * self.get_terminal_size().columns)
 
     def move_full_map(self, direction):
         if direction == 'Up':
@@ -1021,6 +1067,7 @@ class Map:
 
     def print_full_map(self, game):
         print(texts.play_menu(game.sett.language)[0])
+        print('-' * self.get_terminal_size().columns)
 
         curent_mode = game.gamemode.mode
         for i in range(self.start_x, self.max_x):
@@ -1034,6 +1081,8 @@ class Map:
             print(colored_line, f' {text[0]} \b{locations[game.heroe.hero_symbol]}' if i == self.start_x else '',
                 f'\b{text[2]} \b{game.time.get_day()} {text[3]} \b{game.time.get_time()}' if i == self.start_x + 1 else '',
                 f'{curent_mode.upper()}' if i == self.max_x - 1 else '')
+        
+        print('-' * self.get_terminal_size().columns)
     
     def update_visible_map(self):
         for i in range(len(self.full_map)):
