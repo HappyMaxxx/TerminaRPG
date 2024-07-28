@@ -961,6 +961,10 @@ class Map:
     VISIBILITY_X = 2
     VISIBILITY_Y = 1
 
+    @staticmethod
+    def get_terminal_size():
+        return shutil.get_terminal_size((40, 20))
+
     def __init__(self, range_x = 8, range_y = 15, start_x = 0, start_y = 0):
         self.full_map = [
             ["≈≈≈~.......▲♣♣♣....~≈≈≈~~....♣♣♣♣"],
@@ -988,10 +992,6 @@ class Map:
         self.start_y = start_y
         self.max_x = start_x + range_x
         self.max_y = start_y + range_y
-
-    @staticmethod
-    def get_terminal_size():
-        return shutil.get_terminal_size((40, 20))
 
     def print_map(self, heroe, gamemode, curent_time, language):
         print(texts.play_menu(language)[0])

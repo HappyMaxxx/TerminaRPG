@@ -52,17 +52,20 @@ def map_rigt(lang):
         return map_r_en
 
 #HOW TO PLAY MENU
-htp_ua = ["Вся ця гра - це рольова гра в терміналі, тому вам доведеться використовувати команди",
-          "для виконання певних дій:",
-          "",
-          "-h, help: ви можете скористатися цими командами, щоб вивести список усіх команд",
-          "з коротким описом."]
-
-htp_en = ["This whole game is an RPG in a terminal, so you have to use commands",
-          "to do certain things:"
-          "",
-          "-h, help: you can use this commands to display a list of all commands",
-          "with brief descriptions."]
+def htp(lang):
+    if lang == "ua":
+        return ["Вся ця гра - це рольова гра в терміналі, тому вам доведеться використовувати команди",
+                "для виконання певних дій:",
+                "",
+                "-h, help: ви можете скористатися цими командами, щоб вивести список усіх команд",
+                "з коротким описом."]
+    
+    elif lang == "en":
+        return ["This whole game is an RPG in a terminal, so you have to use commands",
+                "to do certain things:"
+                "",
+                "-h, help: you can use this commands to display a list of all commands",
+                "with brief descriptions."]
 
 #SETTINGS
 def settings(lang):
