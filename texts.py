@@ -1,41 +1,55 @@
 def menu(lang):
-
-    menu_ua = ["1. НОВА ГРА",
+    if lang == "ua":
+        return ["1. НОВА ГРА",
                '2. ЗАВАНАТЖИТИ ГРУ',
                "3. ЯК ГРАТИ",
                "4. НАЛАШТУВАННЯ",
                "0. ВИХІД"]
     
-    menu_en = ["1. NEW GAME",
+    elif lang == "en":
+        return ["1. NEW GAME",
                "2. LOAD GAME",
                "3. HOW TO PLAY",
                "4. SETTINGS",
                "0. EXIT"]
-    
-    if lang == "ua":
-        return menu_ua
-    elif lang == "en":
-        return menu_en
 
 #PAUSE MENU
 def paus(lang):
-
-    paus_ua = [" --- Пауза --- ",
+    if lang == "ua":
+        return [" --- Пауза --- ",
             "1. ПРОДОВЖИТИ",
             "2. НАЛАШТУВАННЯ",
             "0. ВИЙТИ",
             ""]
-
-    paus_en = [" --- Pause --- ",
+    
+    elif lang == "en":
+        return [" --- Pause --- ",
             "1. CONTINUE",
             "2. SETTINGS",
             "0. EXIT",
             ""]
+
+#MAP TEXTS
+def map_rigt(lang):
+    map_r_ua = ['Локація зараз:',
+                '\b, символ:',
+                ' День:',
+                '\b, час:',
+                'ОЗ:',
+                'Монети:'
+                ]
+    map_r_en = ['Current location: ',
+                '\b, symbol: ',
+                ' Day: ',
+                '\b, time: ',
+                'HP: ',
+                'Coins: '
+                ]
     
     if lang == "ua":
-        return paus_ua
+        return map_r_ua
     elif lang == "en":
-        return paus_en
+        return map_r_en
 
 #HOW TO PLAY MENU
 htp_ua = ["Вся ця гра - це рольова гра в терміналі, тому вам доведеться використовувати команди",
@@ -52,37 +66,46 @@ htp_en = ["This whole game is an RPG in a terminal, so you have to use commands"
 
 #SETTINGS
 def settings(lang):
-    set_ua = [" --- НАЛАШТУВАННЯ --- ",
+    if lang == "ua":
+        return [" --- НАЛАШТУВАННЯ --- ",
             "",
             "0. ЗБЕРЕГТИ ЗМІНИ ТА ПОВЕРНУТИСЬ",
             "1. ЗМІНИТИ МОВУ",
             "Мова зараз ua(Українська), змінити на en(English)",
             ""
             ]
-
-    set_en = [" --- SETTINGS --- ",
+    
+    elif lang == "en":
+        return [" --- SETTINGS --- ",
             "",
             "0. SAVE CHANGES AND RETURN",
             "1. CHANGE LANGUAGE",
             "Currently language is en(English), change to ua(Українська)",
             ""
             ]
-    
-    if lang == "ua":
-        return set_ua
-    
-    elif lang == "en":
-        return set_en
 
 def play_menu(lang):
-    play_menu_ua = ["0. ЗБЕРЕГТИ І ВИЙТИ\n",
-                ""]
-
-    play_menu_en = ["0. SAVE AND QUIT\n",
-                    ""]
-    
     if lang == "ua":
-        return play_menu_ua
+        return ["0. ПАУЗА\n",
+                ""]
     
     elif lang == "en":
-        return play_menu_en
+        return ["0. PAUSE\n",
+                ""]
+    
+def locations(language):
+    if language == 'ua':
+        return {
+            '~': 'Мілководдя',
+            '.': 'Рівнина',
+            '♣': 'Ліс',
+            '▲': 'Гори'
+        }
+    
+    elif language == 'en':
+        return {
+            '~': 'Shallow Water',
+            '.': 'Plain',
+            '♣': 'Forest',
+            '▲': 'Mountains'
+        }

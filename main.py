@@ -130,6 +130,7 @@ class Menu:
 
     def start(self):
         while True:
+            self.__init__()
             self.show_menu()
             choice = self.get_char()
             if choice == '1':
@@ -908,13 +909,6 @@ class Processmode:
 
 
 class Map:
-    locations = {
-        '~': 'Мілководдя',
-        '.': 'Рівнина',
-        '♣': 'Ліс',
-        '▲': 'Гори'
-    }
-
     COLORS = {
         '~': '\x1b[38;5;31m',
         '≈': '\x1b[38;5;33m',
@@ -997,9 +991,11 @@ class Map:
                 colored_line += self.COLORS.get(symbol, colorama.Fore.RESET) + symbol
                 colored_line += colorama.Fore.RESET
             try:
-                print(colored_line, f'  Локація зараз: {self.locations[heroe.hero_symbol]}, символ: {heroe.hero_symbol}' if i == start_x else '',
-                    f' День: {curent_time.get_day()}, час: {curent_time.get_time()} {curent_time.emoji_by_time[curent_time.daytime]}' if i == start_x + 1 else '',
-                    f'HP: {heroe.curent_hp}/{heroe.max_hp} Coins: {heroe.coins}' if i == start_x + 2 else '',
+                text = texts.map_rigt(language)
+                locations = texts.locations(language)
+                print(colored_line, f'  {text[0]} \b{locations[heroe.hero_symbol]} {text[1]} {heroe.hero_symbol}' if i == start_x else '',
+                    f'{text[2]} \b{curent_time.get_day()} {text[3]} \b{curent_time.get_time()} {curent_time.emoji_by_time[curent_time.daytime]}' if i == start_x + 1 else '',
+                    f'{text[4]} \b{heroe.curent_hp}/{heroe.max_hp} {text[5]} \b{heroe.coins}' if i == start_x + 2 else '',
                     f'\b{heroe.print_hp()}' if i == start_x + 3 else '',
                     f'\b\b{curent_mode.upper()}' if i == start_x + 4 else '')
             except:
@@ -1033,8 +1029,10 @@ class Map:
                 symbol = self.visible_map[i][0][j]
                 colored_line += self.COLORS.get(symbol, colorama.Fore.RESET) + symbol
                 colored_line += colorama.Fore.RESET
-            print(colored_line, f'  Локація зараз: {self.locations[game.heroe.hero_symbol]}' if i == self.start_x else '',
-                f' День: {game.time.get_day()}, час: {game.time.get_time()}' if i == self.start_x + 1 else '',
+            text = texts.map_rigt(game.sett.language)
+            locations = texts.locations(game.sett.language)
+            print(colored_line, f' {text[0]} \b{locations[game.heroe.hero_symbol]}' if i == self.start_x else '',
+                f'\b{text[2]} \b{game.time.get_day()} {text[3]} \b{game.time.get_time()}' if i == self.start_x + 1 else '',
                 f'{curent_mode.upper()}' if i == self.max_x - 1 else '')
     
     def update_visible_map(self):
