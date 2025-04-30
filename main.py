@@ -11,6 +11,7 @@ import shutil
 import texts
 
 import colorama
+
 colorama.init()
 
 class Settings:
@@ -30,6 +31,7 @@ class Menu:
         except FileNotFoundError:
             self.sett = Settings()
 
+    @staticmethod
     def settings_menu(self):
         while True:
             Menu.clear()
@@ -37,7 +39,7 @@ class Menu:
                 print(i)
 
             print("> ", end='')
-            choice = Menu.get_char()
+            choice = self.get_char()
             if choice == '1':
                 if self.sett.language == 'ua':
                     self.sett.language = 'en'
@@ -67,7 +69,7 @@ class Menu:
         mapp = Map()
         heroe = Heroe(mapp = mapp)
         inventar = Inventory()
-        game = Game(heroe, mapp, curent_time, gamemode, process, inventar, settings = self.sett)
+        game = Game(heroe, mapp, curent_time, gamemode, process, inventar, settings = self.sett, menu = self)
         game.main_process()
 
     @staticmethod
@@ -94,8 +96,15 @@ class Menu:
 
     @staticmethod
     def load_set():
-        with open("settings.pkl", 'rb') as f:
-            return pickle.load(f)
+        try:
+            with open("settings.pkl", 'rb') as f:
+                return pickle.load(f)
+        except FileNotFoundError:
+            with open("settings.pkl", 'wb') as f:
+                sett = Settings()
+                pickle.dump(sett, f)
+            
+            return sett
 
     def show_menu(self):
         self.clear()
@@ -117,8 +126,7 @@ class Menu:
         except:
             pass
     
-    @staticmethod
-    def get_char():
+    def get_char(self):
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
@@ -161,7 +169,7 @@ class Menu:
 
 
 class Game:
-    def __init__(self, heroe, mapp, time, gamemode, processmode, inventory, settings):
+    def __init__(self, heroe, mapp, time, gamemode, processmode, inventory, settings, menu):
         self.heroe = heroe
         self.mapp = mapp
         self.time = time
@@ -169,6 +177,7 @@ class Game:
         self.process = processmode
         self.inventory = inventory
         self.sett = settings
+        self.menu = menu
         self.enemies = []
         self.index = -1
 
@@ -194,7 +203,7 @@ class Game:
                     self.process.mode = 'ingame'
 
                 elif char == "2":
-                    Menu.settings_menu(self)
+                    self.menu.settings_menu(self.menu)
 
                 elif char == '0':
                     Menu.clear()
@@ -415,7 +424,7 @@ class Game:
             if char == '1':
                 self.gamemode.mode = 'fight'
             elif char == '2':
-                Menu.settings_menu(self)
+                Menu.settings_menu(Menu)
             elif char == '0':
                 Menu.clear()
                 print(texts.live_figth(self.sett.language))
