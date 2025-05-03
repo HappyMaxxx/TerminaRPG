@@ -7,12 +7,106 @@ import random
 from pyfiglet import Figlet
 import pickle
 import shutil
+import colorama
+import copy
 
 import texts
-
-import colorama
+import settings
 
 colorama.init()
+
+
+class InputHandler:
+    def __init__(self):
+        self.move_dict = {
+            'w': 'Up',
+            's': 'Down',
+            'd': 'Right',
+            'a': 'Left',
+            'ц': 'Up',
+            'і': 'Down',
+            'в': 'Right',
+            'ф': 'Left',
+        }
+
+    def get_input(self, mode):
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            char = sys.stdin.read(1).lower()
+
+            if char == '\x1b':
+                sequence = sys.stdin.read(2)
+                if mode in ['normal', 'map']:
+                    if sequence == '[A':
+                        return 'Up'
+                    elif sequence == '[B':
+                        return 'Down'
+                    elif sequence == '[C':
+                        return 'Right'
+                    elif sequence == '[D':
+                        return 'Left'
+
+            if mode == 'menu':
+                if char in ['1', '2', '3', '4', '5', '0']:
+                    return char
+                
+                return -1
+
+            elif mode == 'settings':
+                if char in ['1', '2', '0']:
+                    return char
+                return -1
+
+            elif mode == 'normal':
+                if char in self.move_dict:
+                    return self.move_dict[char]
+                elif char == 'm' or char == 'ь':
+                    return 'Map'
+                elif char == 'c' or char == 'c':
+                    return 'C'
+                elif char == '0':
+                    return 'Esc'
+                elif char == 'i' or char == 'ш':
+                    return 'I'
+                return -1
+
+            elif mode == 'command':
+                if char in ['0', 'n', 'c', 'т', 'с']:
+                    return 'Esc'
+                elif char == 'm' or char == 'ь':
+                    return 'Map'
+                elif char == 'i' or char == 'ш':
+                    return 'I'
+                return -1
+
+            elif mode == 'map':
+                if char in self.move_dict:
+                    return self.move_dict[char]
+                elif char in ['0', 'n', 'm', 'т', 'ь']:
+                    return 'Esc'
+                elif char == 'c' or char == 'с':
+                    return 'C'
+                elif char == 'i' or char == 'ш':
+                    return 'I'
+                return -1
+
+            elif mode == 'inventory':
+                if char in ['0', 'n', 'c', 'm', 'т', 'ь', 'с']:
+                    return 'Esc'
+                return -1
+
+            elif mode == 'fight' or mode == 'pause':
+                if char in ['1', '2', '3', '4', '5', '0']:
+                    return char
+                return -1
+
+            return -1
+
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
 
 class Settings:
     def __init__(self):
@@ -24,30 +118,34 @@ class Settings:
 
 
 class Menu:
+    is_watched_intro = False
+
     def __init__(self):
         try:
             with open("settings.pkl", 'rb') as f:
                 self.sett = pickle.load(f)
         except FileNotFoundError:
             self.sett = Settings()
+        self.input_handler = InputHandler()
 
-    @staticmethod
     def settings_menu(self):
         while True:
-            Menu.clear()
+            settings.clear()
             for i in texts.settings(self.sett.language):
                 print(i)
 
             print("> ", end='')
-            choice = self.get_char()
+            sys.stdout.flush()
+
+            choice = self.input_handler.get_input('settings')
             if choice == '1':
                 if self.sett.language == 'ua':
                     self.sett.language = 'en'
                 else:
                     self.sett.language = 'ua'
-                self.sett.save()
+                    
                 if isinstance(self, Game):
-                    self.sett = Menu.load_set()
+                    self.sett = self.load_set()
 
             elif choice == '2':
                 pass
@@ -56,20 +154,20 @@ class Menu:
                 self.sett.save()
                 break
 
-    @staticmethod
-    def clear():
-        os.system('cls' if os.name == 'nt' else 'clear')
-
     def start_new_game(self):
-        global curent_time, gamemode, process, mapp, heroe, inventar, game
+        global curent_time, gamemode, process, mapp, hero, inventar, game
 
-        curent_time = Time(hours = 8)
+        if os.path.exists("gamesave.pkl"):
+            os.remove("gamesave.pkl")
+
+        curent_time = Time(hours=8)
         gamemode = Gamemode()
         process = Processmode()
         mapp = Map()
-        heroe = Heroe(mapp = mapp)
+        hero = Hero(mapp=mapp)
         inventar = Inventory()
-        game = Game(heroe, mapp, curent_time, gamemode, process, inventar, settings = self.sett, menu = self)
+        game = Game(hero, mapp, curent_time, gamemode, process, inventar, settings=self.sett, menu=self)
+        hero.set_game(game)
         game.main_process()
 
     @staticmethod
@@ -82,14 +180,18 @@ class Menu:
 
     def print_intro(self):
         f = Figlet(font='gothic')
-        self.write((list(f.renderText('TerminaRPG'))), 0.002)
+        if not self.is_watched_intro:
+            self.is_watched_intro = True
+            self.write((list(f.renderText('TerminaRPG'))), 0.002)
+        else:
+            print(f.renderText('TerminaRPG'))
         print()
 
     @staticmethod
     def load_game():
         with open("gamesave.pkl", 'rb') as f:
             game = pickle.load(f)
-        game.heroe.add_heroe_on_map()
+        game.hero.add_hero_on_map()
         game.process.mode = 'menu'
         game.sett = Menu.load_set()
         return game
@@ -103,15 +205,15 @@ class Menu:
             with open("settings.pkl", 'wb') as f:
                 sett = Settings()
                 pickle.dump(sett, f)
-            
             return sett
 
     def show_menu(self):
-        self.clear()
+        settings.clear()
         self.print_intro()
         for i in texts.menu(self.sett.language):
             print(i)
         print("> ", end='')
+        sys.stdout.flush()
 
     @staticmethod
     def dell_all():
@@ -120,37 +222,27 @@ class Menu:
             del gamemode
             del process
             del mapp
-            del heroe
+            del hero
             del inventar
             del game
         except:
             pass
-    
-    def get_char(self):
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
-            char = sys.stdin.read(1)
-            return char
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
     def start(self):
         while True:
             self.__init__()
             self.show_menu()
-            choice = self.get_char()
+            choice = self.input_handler.get_input('menu')
             if choice == '1':
                 self.dell_all()
                 self.start_new_game()
             elif choice == '2':
                 print("Loading game...")
-                self.clear()
+                settings.clear()
                 if not os.path.exists("gamesave.pkl"):
                     print("No save file")
                     time.sleep(2)
-                    self.clear()
+                    settings.clear()
                     continue
 
                 self.dell_all()
@@ -161,7 +253,7 @@ class Menu:
                 pass
 
             elif choice == '4':
-                self.settings_menu(self)
+                self.settings_menu()
 
             elif choice in ['5', '0']:
                 print("Exiting...")
@@ -169,8 +261,8 @@ class Menu:
 
 
 class Game:
-    def __init__(self, heroe, mapp, time, gamemode, processmode, inventory, settings, menu):
-        self.heroe = heroe
+    def __init__(self, hero, mapp, time, gamemode, processmode, inventory, settings, menu):
+        self.hero = hero
         self.mapp = mapp
         self.time = time
         self.gamemode = gamemode
@@ -180,21 +272,23 @@ class Game:
         self.menu = menu
         self.enemies = []
         self.index = -1
+        self.input_handler = InputHandler()
 
     def save(self):
         with open("gamesave.pkl", 'wb') as f:
             pickle.dump(self, f)
 
     def main_process(self):
-        Menu.load_set()
+        self.menu.load_set()
         while True:
             self.save()
             if self.process.mode == 'menu':
-                Menu.clear()
+                settings.clear()
                 self.print_pause()
 
                 print('> ', end='')
-                char = self.process.get_char_map()
+                sys.stdout.flush()
+                char = self.input_handler.get_input('menu')
 
                 if char == -1:
                     continue
@@ -203,30 +297,30 @@ class Game:
                     self.process.mode = 'ingame'
 
                 elif char == "2":
-                    self.menu.settings_menu(self.menu)
+                    self.menu.settings_menu()
 
                 elif char == '0':
-                    Menu.clear()
+                    settings.clear()
                     return
 
             elif self.process.mode == 'sett':
                 pass
 
             else:
-                if self.heroe.curent_hp <= 0:
-                    Menu.clear()
-                    print("Heroe is dead")
+                if self.hero.curent_hp <= 0:
+                    settings.clear()
+                    print("Hero is dead")
                     time.sleep(2)
                     self.process.mode = 'menu'
                     continue
 
-                Menu.clear()
+                settings.clear()
                 self.time.get_daytime()
 
                 if self.gamemode.mode == 'normal':
                     self.index = -1
-                    self.mapp.print_map(self.heroe, self.gamemode, self.time, self.sett.language)
-                    char = self.gamemode.get_char_n()
+                    self.mapp.print_map(self.hero, self.gamemode, self.time, self.sett.language)
+                    char = self.input_handler.get_input('normal')
 
                     if char == -1:
                         continue
@@ -237,28 +331,25 @@ class Game:
                         continue
 
                     elif char in ['Up', 'Down', 'Right', 'Left']:
-                        self.heroe.move(char, self.time, self)
+                        self.hero.move(char, self.time, self)
                         if len(self.enemies) > 0:
                             for i, enemy in enumerate(self.enemies):
                                 try:
-                                    if enemy.is_hero_stepping_on(self.heroe):
+                                    if enemy.is_hero_stepping_on(self.hero):
                                         self.index = i
                                         self.gamemode.mode = 'fight'
                                         break
                                 except ValueError:
                                     pass
 
-                        if len(self.enemies) < 5 and self.time.get_day() >= 1:
-                            if self.time.daytime == 'ніч':
-                                if random.randint(0, 10) in [1, 2, 3, 4]:
+                        if len(self.enemies) < settings.MAX_ENEMIES and self.time.get_day() >= 1:
+                            if self.time.daytime == 3:
+                                if random.random() < 0.6:
                                     self.create_enemy()
-                                self.create_enemy()
 
-                            elif self.time.daytime == 'вечір':
-                                if random.randint(0, 10) in [1, 2]:
+                            elif self.time.daytime == 2:
+                                if random.random() < 0.2:
                                     self.create_enemy()
-                                self.create_enemy()
-
                         continue
 
                     elif char == 'C':
@@ -274,9 +365,10 @@ class Game:
                         continue
 
                 elif self.gamemode.mode == 'command':
-                    self.mapp.print_map(self.heroe, self.gamemode, self.time, self.sett.language)
+                    self.mapp.print_map(self.hero, self.gamemode, self.time, self.sett.language)
                     print("> ", end='')
-                    char = self.gamemode.get_char_c()
+                    sys.stdout.flush()
+                    char = self.input_handler.get_input('command')
 
                     if char == -1:
                         continue
@@ -296,7 +388,7 @@ class Game:
                 elif self.gamemode.mode == 'map':
                     self.mapp.print_full_map(self)
 
-                    char = self.gamemode.get_char_m()
+                    char = self.input_handler.get_input('map')
 
                     if char == -1:
                         continue
@@ -320,7 +412,8 @@ class Game:
                 elif self.gamemode.mode == 'inventory':
                     self.inventory.show_inventory()
                     print("> ", end='')
-                    char = self.gamemode.get_char_i()
+                    sys.stdout.flush()
+                    char = self.input_handler.get_input('inventory')
 
                     if char == -1:
                         continue
@@ -330,7 +423,7 @@ class Game:
                         continue
 
                 elif self.gamemode.mode == 'fight':
-                    self.figth(self.index)
+                    self.fight(self.index)
                     self.index = -1
 
                 elif self.gamemode.mode == 'pause':
@@ -343,16 +436,15 @@ class Game:
     def print_pause(self):
         for i in texts.paus(self.sett.language):
             print(i)
-        print()
 
-    def figth(self, index):
+    def fight(self, index):
         while True:
-            Menu.clear()
-            text = texts.figth_mode(self.sett.language)
+            settings.clear()
+            text = texts.fight_mode(self.sett.language)
 
             print(text[0], '\n')
-            print(f"{text[6]} {self.heroe.curent_hp}/{self.heroe.max_hp}")
-            print(self.heroe.print_hp())
+            print(f"{text[6]} {self.hero.curent_hp}/{self.hero.max_hp}")
+            print(self.hero.print_hp())
             print(f"{self.enemies[index].name} the {self.enemies[index].enemy_type} {text[6]} {self.enemies[index].curent_hp}/{self.enemies[index].max_hp}")
             print(self.enemies[index].print_hp())
             print()
@@ -362,10 +454,11 @@ class Game:
             print(text[4])
             print(text[7])
             print("> ", end='')
+            sys.stdout.flush()
 
             time.sleep(0.1)
 
-            char = self.gamemode.get_char_f()
+            char = self.input_handler.get_input('fight')
             heal_chance = self.enemies[index].enemy_types[self.enemies[index].enemy_type]['heal_chance']
             if char == -1:
                 continue
@@ -375,19 +468,19 @@ class Game:
                 self.handle_pause()
 
             elif char == '1':
-                if self.heroe.curent_hp <= 0:
-                    Menu.clear()
-                    print("Heroe is dead")
+                if self.hero.curent_hp <= 0:
+                    settings.clear()
+                    print("Hero is dead")
                     time.sleep(2)
                     self.gamemode.mode = 'normal'
                     self.process.mode = 'menu'
                     break
                 else:
-                    self.heroe.atack(self.enemies[index], self)
-                    Menu.clear()
+                    self.hero.atack(self.enemies[index], self)
+                    settings.clear()
 
                 if self.enemies[index].curent_hp <= 0:
-                    self.heroe.add_coins(self.enemies[index].generate_coin())
+                    self.hero.add_coins(self.enemies[index].generate_coin())
                     self.enemies[index].dead_enemy(game=self)
                     del self.enemies[index]
                     self.gamemode.mode = 'normal'
@@ -396,13 +489,13 @@ class Game:
                     if random.random() < heal_chance:
                         self.enemies[index].heal()
                     else:
-                        self.enemies[index].atack(self.heroe, self)
+                        self.enemies[index].atack(self.hero, self)
 
             elif char == '3':
-                self.heroe.heal(5)
+                self.hero.heal(5)
 
                 if self.enemies[index].curent_hp <= 0:
-                    self.heroe.add_coins(self.enemies[index].generate_coin())
+                    self.hero.add_coins(self.enemies[index].generate_coin())
                     self.enemies[index].dead_enemy(game=self)
                     del self.enemies[index]
                     self.gamemode.mode = 'normal'
@@ -411,36 +504,38 @@ class Game:
                     if random.random() < heal_chance:
                         self.enemies[index].heal()
                     else:
-                        self.enemies[index].atack(self.heroe, self)
+                        self.enemies[index].atack(self.hero, self)
 
     def handle_pause(self):
         while self.gamemode.mode == 'pause':
-            Menu.clear()
+            settings.clear()
             self.print_pause()
-            print("> ", end='')
 
-            char = self.gamemode.get_char_f()
+            print("> ", end='')
+            sys.stdout.flush()
+            char = self.input_handler.get_input('pause')
 
             if char == '1':
                 self.gamemode.mode = 'fight'
             elif char == '2':
-                Menu.settings_menu(Menu)
+                self.menu.settings_menu()
             elif char == '0':
-                Menu.clear()
-                print(texts.live_figth(self.sett.language))
+                settings.clear()
+                print(texts.live_fight(self.sett.language))
                 time.sleep(2)
                 break
 
+
 class Entity:
-    def __init__(self, max_hp, curent_hp: int = -1, damage = None):
+    def __init__(self, max_hp, curent_hp: int = -1, damage=None):
         self.max_hp = max_hp
         self.curent_hp = max_hp if curent_hp == -1 else curent_hp
         self.damage = damage
-    
+
     @property
     def curent_hp(self):
         return self.__curent_hp
-    
+
     @curent_hp.setter
     def curent_hp(self, value):
         self.__curent_hp = value
@@ -448,28 +543,19 @@ class Entity:
     def __iadd__(self, other):
         self.curent_hp -= other
         return self
-    
+
     def minus_hp(self, damage, game):
         damage = self.find_damage(damage)
         self.curent_hp -= damage
-        # if self.curent_hp <= 0:
-        #     if isinstance(self, Heroe):
-        #         raise ValueError("Heroe is dead")
-        #     else:
-        #         # self.dead_enemy(game)
-                    
-            # game.gamemode.mode = 'normal'
-    
-    def atack(self, other, game, weapon = None):
+
+    def atack(self, other, game, weapon=None):
         if weapon is None:
             other.minus_hp(self.damage, game)
 
-        # TODO: weapon damage
-    
-    def print_hp(self, bars = 20):
+    def print_hp(self, bars=20):
         remaining_hp = round(self.curent_hp / self.max_hp * bars)
         lost_hp = (bars - remaining_hp)
-        if isinstance(self, Heroe):
+        if isinstance(self, Hero):
             return f'{colorama.Fore.GREEN}|{remaining_hp * "█"}{lost_hp * "_"}|{colorama.Style.RESET_ALL}'
         else:
             return f'{colorama.Fore.RED}|{remaining_hp * "█"}{lost_hp * "_"}|{colorama.Style.RESET_ALL}'
@@ -479,9 +565,9 @@ class Entity:
         if isinstance(damage, list):
             return random.randint(damage[0], damage[1])
         return damage
-    
+
     def heal(self, heal=5):
-        if isinstance(self, Heroe):
+        if isinstance(self, Hero):
             if self.curent_hp + heal > self.max_hp:
                 self.curent_hp = self.max_hp
             else:
@@ -494,18 +580,21 @@ class Entity:
                 self.curent_hp = self.max_hp
             else:
                 self.curent_hp += heal
-    
 
-class Heroe(Entity):
-    def __init__(self, max_hp: int = 100, curent_hp = -1, damage = [0, 2], mapp = None, coins = 0):
-        if mapp is None: raise ValueError("Map is not defined")
 
-        super().__init__(max_hp = max_hp, curent_hp = curent_hp, damage = damage)
+class Hero(Entity):
+    def __init__(self, max_hp: int = 100, curent_hp=-1, damage=[0, 2], mapp=None, coins=0):
+        if mapp is None:
+            raise ValueError("Map is not defined")
+
+        super().__init__(max_hp=max_hp, curent_hp=curent_hp, damage=damage)
         self.mapp = mapp
         self.coins = coins
-        self.spawn_heroe()
-        pass
-    
+        self.spawn_hero()
+
+    def set_game(self, game):
+        self.game = game
+
     def unlock_map(self, radius_x, radius_y):
         hero_pos = self.get_hero_position()
         i = hero_pos[0]
@@ -520,19 +609,22 @@ class Heroe(Entity):
                     else:
                         visible_map[i + x][0] = visible_map[i + x][0][:j + y] + full_map[i + x][0][j + y] + visible_map[i + x][0][j + y + 1:]
 
-    def spawn_heroe(self, i: int = 5, j: int = 3):
+    def spawn_hero(self, i: int = 2, j: int = 4):
         full_map = self.mapp.full_map
         self.hero_symbol = full_map[i][0][j]
-        full_map[i][0][j] == 'H'
-        self.add_heroe_on_map()
+        str_before = full_map[i][0][:j]
+        str_after = full_map[i][0][j + 1:]
+        full_map[i][0] = str_before + 'H' + str_after
+        self.mapp.full_map = full_map
+        self.add_hero_on_map()
 
-    def add_heroe_on_map(self):
+    def add_hero_on_map(self):
         visible_map = self.mapp.visible_map
         pos = self.get_hero_position()
         i = pos[0]
         j = pos[1]
         visible_map[i][0] = visible_map[i][0][:j] + 'H' + visible_map[i][0][j + 1:]
-        self.unlock_map(self.mapp.VISIBILITY_X, self.mapp.VISIBILITY_Y)
+        self.unlock_map(settings.VISIBILITY_X, settings.VISIBILITY_Y)
 
     def get_hero_position(self):
         full_map = self.mapp.full_map
@@ -540,7 +632,7 @@ class Heroe(Entity):
             for j in range(len(full_map[i][0])):
                 if full_map[i][0][j] == "H":
                     return (i, j)
-                
+
     def move(self, direction, other, game):
         full_map = self.mapp.full_map
         hero_pos = self.get_hero_position()
@@ -567,14 +659,14 @@ class Heroe(Entity):
 
         if not chenge:
             return
-        
+
         new_hero_symbol = full_map[new_i][0][new_j]
 
         full_map[i][0] = full_map[i][0][:j] + self.hero_symbol + full_map[i][0][j + 1:]
         full_map[new_i][0] = full_map[new_i][0][:new_j] + 'H' + full_map[new_i][0][new_j + 1:]
 
         self.hero_symbol = new_hero_symbol
-        self.unlock_map(self.mapp.VISIBILITY_X, self.mapp.VISIBILITY_Y)
+        self.unlock_map(settings.VISIBILITY_X, settings.VISIBILITY_Y)
         for i in range(10):
             if new_hero_symbol == '▲':
                 other += 3
@@ -585,75 +677,40 @@ class Heroe(Entity):
             else:
                 other += 1
                 time.sleep(0.01)
-            Menu.clear()
+            settings.clear()
             game.mapp.print_map(self, game.gamemode, game.time, game.sett.language)
-    
+
     @property
     def symbol(self):
         return self.hero_symbol
-    
+
     @symbol.setter
     def symbol(self, hs):
         self.hero_symbol = hs
-    
+
     def add_coins(self, coins):
         self.coins += coins
 
 
 class Enemy(Entity):
     enemys = ['goblin', 'skeleton', 'orc']
-    monster_names = ["Xenomorph", "Nemesis", "Balrog",
-    "Demogorgon", "Godzilla", "Cthulhu", "Kaonashi",
-    "Sephiroth", "Tyrant", "Gorgon", "Dementor",
-    "Gengar", "Mothra", "Gremlin", "Dracula",
-    "Frieza", "Zergling", "Wendigo", "Behemoth",
-    "Smaug", "Ghoul", "Necromorph", "Rancor",
-    "Leviathan", "Predator", "Kaiju", "Balverine",
-    "Cerberus", "Sauron", "Majin Buu", "Reaper",
-    "Doom Slayer", "Kraid", "Jotun", "Revenant",
-    "Spectre", "Vamp", "Naga", "Hydralisk",
-    "Beholder", "Lich King", "Goliath", "Zeromus",
-    "Darkspawn", "Creeper", "Molten Man", "Nightmare",
-    "Orochi", "Poo", "Siren", "Rick Sanchez", "Thanos",
-    "Ultron", "Venom", "Wolverine", "Xenomorph",
-    "Yoda", "Aragorn", "Bane"
-    ]
-
-    enemy_types = {
-        'goblin': {
-            'max_hp': 10,
-            'damage': [0, 2],
-            'heal_chance': 0.2,
-            'healing': [1, 2]
-        },
-        'skeleton': {
-            'max_hp': 15,
-            'damage': [0, 3],
-            'heal_chance': 0.2,
-            'healing': [1, 3]
-        },
-        'orc': {
-            'max_hp': 20,
-            'damage': [2, 4],
-            'heal_chance': 0.1,
-            'healing': [2, 4]
-        }
-    }
+    monster_names = settings.monster_names
+    enemy_types = settings.enemy_types
 
     def __init__(self, mapp):
         self.enemy_type = random.choice(self.enemys)
 
-        super().__init__(self.enemy_types[self.enemy_type]['max_hp'], curent_hp = -1, damage = self.enemy_types[self.enemy_type]['damage'])
+        super().__init__(self.enemy_types[self.enemy_type]['max_hp'], curent_hp=-1, damage=self.enemy_types[self.enemy_type]['damage'])
         self.name = random.choice(self.monster_names)
         self.enemy_type = self.enemy_type
         self.mapp = mapp
         self.enemy_symbol = None
         self.pos_x = self.set_enemy_x()
         self.pos_y = self.set_enemy_y()
-        
+
         while self.validate_enemy_position():
             self.pos_x = self.set_enemy_x()
-            self.pos_x = self.set_enemy_y()
+            self.pos_y = self.set_enemy_y()
 
         self.spawn_enemy()
 
@@ -678,7 +735,7 @@ class Enemy(Entity):
                 return True
         except IndexError:
             return True
-        
+
         return False
 
     def spawn_enemy(self):
@@ -687,14 +744,14 @@ class Enemy(Entity):
             self.enemy_symbol = full_map[self.pos_x][0][self.pos_y]
             full_map[self.pos_x][0] = full_map[self.pos_x][0][:self.pos_y] + self.enemy_type[0].upper() + full_map[self.pos_x][0][self.pos_y + 1:]
             break
-    
-    def is_hero_stepping_on(self, heroe):
-        return self.pos_x == heroe.get_hero_position()[0] and self.pos_y == heroe.get_hero_position()[1]
+
+    def is_hero_stepping_on(self, hero):
+        return self.pos_x == hero.get_hero_position()[0] and self.pos_y == hero.get_hero_position()[1]
 
     def dead_enemy(self, game):
         full_map = self.mapp.full_map
-        game.heroe.hero_symbol = self.enemy_symbol
-        full_map[self.pos_x][0] = full_map[self.pos_x][0][:self.pos_y] + "H"+ full_map[self.pos_x][0][self.pos_y + 1:]
+        game.hero.hero_symbol = self.enemy_symbol
+        full_map[self.pos_x][0] = full_map[self.pos_x][0][:self.pos_y] + "H" + full_map[self.pos_x][0][self.pos_y + 1:]
 
     def generate_coin(self):
         if self.enemy_type == 'goblin':
@@ -705,19 +762,13 @@ class Enemy(Entity):
             coins = random.randint(2, 5)
         return coins
 
-class Time:
-    emoji_by_time = {
-    "світанок": "🌅",
-    "день": "🌞",
-    "вечір": "🌇",
-    "ніч": "🌙"
-    }
 
+class Time:
     def __init__(self, minutes=0, hours=0, days=0):
         self.minutes = self.validate_time(minutes) % 60
         self.hours = self.validate_time(hours) % 24
         self.days = self.validate_time(days)
-        self.daytime = 'день'
+        self.daytime = 1
 
     def __iadd__(self, other):
         self.minutes += other
@@ -730,7 +781,7 @@ class Time:
                 self.hours -= 24
 
         return self
-    
+
     def validate_time(self, x):
         if x < 0 or isinstance(x, int) == False:
             raise ValueError('Invalid time value')
@@ -751,12 +802,12 @@ class Time:
     @property
     def daytime(self):
         return self.__daytime
-    
+
     @daytime.setter
     def daytime(self, value: str) -> None:
-        if value not in ['світанок', 'день', 'вечір', 'ніч']:
+        if value not in range(0, 4):
             raise ValueError("Invalid daytime")
-        
+
         self.__daytime = value
 
     def get_daytime(self):
@@ -768,13 +819,13 @@ class Time:
         dt = int(dt)
 
         if dt >= 4 and dt < 6:
-            self.daytime = "світанок"
+            self.daytime = 0
         elif dt >= 6 and dt < 18:
-            self.daytime = "день"
+            self.daytime = 1
         elif dt >= 18 and dt < 20:
-            self.daytime = "вечір"
+            self.daytime = 2
         else:
-            self.daytime = "ніч"
+            self.daytime = 3
 
     @staticmethod
     def format_time(time):
@@ -782,13 +833,6 @@ class Time:
 
 
 class Gamemode:
-    move_dict = {
-        'w': 'Up',
-        's': 'Down',
-        'd': 'Right',
-        'a': 'Left',
-    }
-
     def __init__(self):
         self.mode = 'normal'
 
@@ -803,126 +847,6 @@ class Gamemode:
 
         self.__mode = value
 
-    def get_char_n(self):
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
-            char = sys.stdin.read(1)
-            char = char.lower()
-
-            if char == '\x1b':
-                sequence = sys.stdin.read(2)
-                if sequence == '[A':
-                    return 'Up'
-                elif sequence == '[B':
-                    return 'Down'
-                elif sequence == '[C':
-                    return 'Right'
-                elif sequence == '[D':
-                    return 'Left'
-
-            elif char in ['w', 's', 'd', 'a']:
-                return self.move_dict[char]
-            elif char == 'm':
-                return 'Map'
-            elif char == 'c':
-                return 'C'
-            elif char == '0':
-                return 'Esc'
-            elif char == 'i':
-                return 'I'
-            else:
-                return -1
-
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
-    @staticmethod
-    def get_char_c():
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
-            char = sys.stdin.read(1)
-            char = char.lower()
-
-            if char in ['0', 'n', 'c']:
-                return 'Esc'
-            elif char == 'm':
-                return 'Map'
-            elif char == 'i':
-                return 'I'
-            else:
-                return -1
-
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
-    def get_char_m(self):
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
-            char = sys.stdin.read(1)
-            char = char.lower()
-            if char == '\x1b':
-                sequence = sys.stdin.read(2)
-                if sequence == '[A':
-                    return 'Up'
-                elif sequence == '[B':
-                    return 'Down'
-                elif sequence == '[C':
-                    return 'Right'
-                elif sequence == '[D':
-                    return 'Left'
-
-            elif char in ['w', 's', 'd', 'a']:
-                return self.move_dict[char]
-            elif char in ['0', 'n', 'm']:
-                return 'Esc'
-            elif char == 'c':
-                return 'C'
-            elif char == 'i':
-                return 'I'
-            else:
-                return -1
-
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
-    def get_char_f(self):
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
-            char = sys.stdin.read(1)
-            char = char.lower()
-
-            if char in ['1', '2', '3', '4', '5', '0']:
-                return char
-            else:
-                return -1
-
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
-    def get_char_i(self):
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
-            char = sys.stdin.read(1)
-            char = char.lower()
-
-            if char in ['0', 'n', 'c', 'm']:
-                return 'Esc'
-            else:
-                return -1
-
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
 
 class Processmode:
     def __init__(self):
@@ -931,66 +855,18 @@ class Processmode:
     @property
     def mode(self):
         return self.__mode
-    
+
     @mode.setter
     def mode(self, value: str) -> None:
         if value not in ['menu', 'ingame', 'sett']:
             raise ValueError("Invalid mode")
-        
+
         self.__mode = value
-
-    @staticmethod
-    def get_char_map():
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
-            char = sys.stdin.read(1)
-            char = char.lower()  
-
-            if char in ['1', '2', '3', '4', '0']:
-                return char
-            else:
-                return -1
-            
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 
 class Map:
-    COLORS = {
-        '~': '\x1b[38;5;31m',
-        '≈': '\x1b[38;5;33m',
-        '.': '\x1b[38;5;148m', 
-        '♣': colorama.Fore.GREEN, 
-        '▲': colorama.Fore.WHITE,
-        'H': colorama.Fore.RED 
-    }
-
-    VISIBILITY_X = 2
-    VISIBILITY_Y = 1
-
-    @staticmethod
-    def get_terminal_size():
-        return shutil.get_terminal_size((40, 20))
-
-    def __init__(self, range_x = 8, range_y = 15, start_x = 0, start_y = 0):
-        self.full_map = [
-            ["≈≈≈~.......▲♣♣♣....~≈≈≈~~....♣♣♣♣"],
-            ["≈≈~~~.....♣▲.♣♣...~≈≈≈~~......♣.."],
-            ["~~..H...▲▲▲.....~~~♣♣.....≈~....♣"],
-            ["....♣..▲▲▲▲.♣♣♣..~♣♣♣.▲▲~~≈≈~...."],
-            ["...♣♣♣♣♣♣......♣♣♣♣..~~~≈≈≈~~...."],
-            ["♣....♣♣♣.♣♣~♣♣.....♣♣~~≈≈≈≈~..♣.."],
-            ["..♣♣..♣♣..♣~≈≈♣♣♣.....~~~≈~..♣♣.."],
-            ["♣♣♣.......♣.~♣♣♣......♣♣♣~~.♣♣..▲"],
-            ["▲▲.♣♣♣.......▲..♣♣♣...♣♣♣.▲♣♣.♣.."],
-            ["▲~▲.♣.♣.......▲.▲..♣♣♣♣♣.▲▲▲♣♣♣.."],
-            ["~▲▲..♣♣....▲▲♣▲.....♣♣♣..▲..▲...▲"],
-            ["▲▲.♣...........♣♣♣♣......♣♣....▲."],
-            ["...♣.♣..▲....♣♣♣.♣♣♣♣.♣.~.♣♣..▲▲♣"],
-            ['♣.▲▲...♣...♣♣.♣♣..♣♣..~~~≈≈≈.♣..♣'],
-            ['♣.♣▲▲▲....▲▲...♣♣...~~≈≈≈≈~...♣♣.']]
+    def __init__(self, range_x=8, range_y=15, start_x=0, start_y=0):
+        self.full_map = copy.deepcopy(settings.full_map)
         HAIGH = len(self.full_map)
         WIDTH = len(self.full_map[0][0])
         self.visible_map = [["#" * WIDTH] * 1 for _ in range(HAIGH)]
@@ -1002,16 +878,20 @@ class Map:
         self.max_x = start_x + range_x
         self.max_y = start_y + range_y
 
-    def print_map(self, heroe, gamemode, curent_time, language):
+    @staticmethod
+    def get_terminal_size():
+        return shutil.get_terminal_size((40, 20))
+
+    def print_map(self, hero, gamemode, curent_time, language):
         print(texts.play_menu(language)[0])
         print('-' * self.get_terminal_size().columns)
         curent_mode = gamemode.mode
 
-        hero_pos = heroe.get_hero_position()
-        left_x = hero_pos[0] - self.VISIBILITY_Y - 1
-        right_x = hero_pos[0] + self.VISIBILITY_Y + 2
-        left_y = hero_pos[1] - self.VISIBILITY_X - 2
-        right_y = hero_pos[1] + self.VISIBILITY_X + 3
+        hero_pos = hero.get_hero_position()
+        left_x = hero_pos[0] - settings.VISIBILITY_Y - 1
+        right_x = hero_pos[0] + settings.VISIBILITY_Y + 2
+        left_y = hero_pos[1] - settings.VISIBILITY_X - 2
+        right_y = hero_pos[1] + settings.VISIBILITY_X + 3
 
         if left_x < 0:
             n = abs(left_x)
@@ -1032,7 +912,7 @@ class Map:
             n = right_y - len(self.visible_map[0][0])
             left_y -= n
             right_y = len(self.visible_map[0][0])
-        
+
         start_x = left_x
         end_x = right_x
         start_y = left_y
@@ -1042,16 +922,25 @@ class Map:
             colored_line = ''
             for j in range(start_y, end_y):
                 symbol = self.visible_map[i][0][j]
-                colored_line += self.COLORS.get(symbol, colorama.Fore.RESET) + symbol
+                colored_line += settings.COLORS.get(symbol, colorama.Fore.RESET) + symbol
                 colored_line += colorama.Fore.RESET
             try:
                 text = texts.map_right(language)
                 locations = texts.locations(language)
-                print(colored_line, f'  {text[0]} \b{locations[heroe.hero_symbol]} {text[1]} {heroe.hero_symbol}' if i == start_x else '',
-                    f'{text[2]} \b{curent_time.get_day()} {text[3]} \b{curent_time.get_time()} {curent_time.emoji_by_time[curent_time.daytime]}' if i == start_x + 1 else '',
-                    f'{text[4]} \b{heroe.curent_hp}/{heroe.max_hp} {text[5]} \b{heroe.coins}' if i == start_x + 2 else '',
-                    f'\b{heroe.print_hp()}' if i == start_x + 3 else '',
-                    f'\b\b{curent_mode.upper()}' if i == start_x + 4 else '')
+                print(colored_line,
+                    # HERO LOCATION
+                      f'  {text[0]} \b{locations[hero.hero_symbol]} {text[1]} {hero.hero_symbol}'
+                        if i == start_x else '',
+                    # TIME 
+                      f'{text[2]} \b{curent_time.get_day()} {text[3]} \b{curent_time.get_time()} '
+                      f'{settings.emoji_by_time[curent_time.daytime]}' if i == start_x + 1 else '',
+                    # MONEY   
+                      f'{text[5]} \b{hero.coins}' if i == start_x + 2 else '',
+                    # HP
+                      f'\b{hero.print_hp()} {text[4]} \b{hero.curent_hp}/{hero.max_hp}'
+                        if i == start_x + 3 else '',
+                    # GAME MODE
+                      f'\b\b{curent_mode.upper()}' if i == start_x + 4 else '')
             except:
                 pass
         print('-' * self.get_terminal_size().columns)
@@ -1070,9 +959,9 @@ class Map:
                 self.start_y += 1
                 self.max_y += 1
         elif direction == 'Left':
-            if self.start_y - 1 >= 0:
+            if self.startとし_y - 1 >= 0:
                 self.start_y -= 1
-                self.max_y -= 1    
+                self.max_y -= 1
 
     def print_full_map(self, game):
         print(texts.play_menu(game.sett.language)[0])
@@ -1083,16 +972,15 @@ class Map:
             colored_line = ''
             for j in range(self.start_y, self.max_y):
                 symbol = self.visible_map[i][0][j]
-                colored_line += self.COLORS.get(symbol, colorama.Fore.RESET) + symbol
+                colored_line += settings.COLORS.get(symbol, colorama.Fore.RESET) + symbol
                 colored_line += colorama.Fore.RESET
             text = texts.map_right(game.sett.language)
             locations = texts.locations(game.sett.language)
-            print(colored_line, f' {text[0]} \b{locations[game.heroe.hero_symbol]}' if i == self.start_x else '',
-                f'\b{text[2]} \b{game.time.get_day()} {text[3]} \b{game.time.get_time()}' if i == self.start_x + 1 else '',
-                f'{curent_mode.upper()}' if i == self.max_x - 1 else '')
-        
+            print(colored_line, f' {text[0]} \b{locations[game.hero.hero_symbol]}' if i == self.start_x else '',
+                  f'\b{text[2]} \b{game.time.get_day()} {text[3]} \b{game.time.get_time()}' if i == self.start_x + 1 else '',
+                  f'{curent_mode.upper()}' if i == self.max_x - 1 else '')
         print('-' * self.get_terminal_size().columns)
-    
+
     def update_visible_map(self):
         for i in range(len(self.full_map)):
             for j in range(len(self.full_map[i][0])):
@@ -1128,4 +1016,4 @@ class Inventory:
 if __name__ == "__main__":
     menu = Menu()
     menu.start()
-    menu.clear()
+    settings.clear()

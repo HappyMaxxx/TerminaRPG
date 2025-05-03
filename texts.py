@@ -4,14 +4,14 @@ def menu(lang):
                '2. ЗАВАНАТЖИТИ ГРУ',
                "3. ЯК ГРАТИ",
                "4. НАЛАШТУВАННЯ",
-               "0. ВИХІД"]
+               "0. ВИХІД", ""]
     
     elif lang == "en":
         return ["1. NEW GAME",
                "2. LOAD GAME",
                "3. HOW TO PLAY",
                "4. SETTINGS",
-               "0. EXIT"]
+               "0. EXIT", ""]
 
 #PAUSE MENU
 def paus(lang):
@@ -19,32 +19,29 @@ def paus(lang):
         return [" --- Пауза --- ",
             "1. ПРОДОВЖИТИ",
             "2. НАЛАШТУВАННЯ",
-            "0. ВИЙТИ",
-            ""]
+            "0. ВИЙТИ", ""]
     
     elif lang == "en":
         return [" --- Pause --- ",
             "1. CONTINUE",
             "2. SETTINGS",
-            "0. EXIT",
-            ""]
+            "0. EXIT", ""]
 
 #MAP RIGHT TEXTS
 def map_right(lang):
-    map_r_ua = ['Локація зараз:',
+    map_r_ua = ['Локація зараз: ',
                 '\b, символ:',
-                ' День:',
-                '\b, час:',
-                'ОЗ:',
-                'Монети:'
-                ]
+                ' День: ',
+                '\b, час: ',
+                'ОЗ: ',
+                'Монети: ']
+    
     map_r_en = ['Current location: ',
                 '\b, symbol: ',
                 ' Day: ',
                 '\b, time: ',
                 'HP: ',
-                'Coins: '
-                ]
+                'Coins: ']
     
     if lang == "ua":
         return map_r_ua
@@ -113,7 +110,7 @@ def locations(language):
             '▲': 'Mountains'
         }
     
-def figth_mode(lang, name='v1mer'):
+def fight_mode(lang, name='v1mer'):
     if lang == 'ua':
         return [' --- БОЙОВИЙ РЕЖИМ --- ',
             "1. Атакувати",
@@ -136,7 +133,7 @@ def figth_mode(lang, name='v1mer'):
             '0. Pause'
             ]
 
-def live_figth(lang):
+def live_fight(lang):
     if lang == 'ua':
         return 'Ви не можете вийти поки ви в бою!'
     
